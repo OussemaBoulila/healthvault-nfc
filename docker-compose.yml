@@ -1,0 +1,9 @@
+services:
+  web:
+    build: .
+    container_name: healthvault_app
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+    restart: unless-stopped

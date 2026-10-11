@@ -1,0 +1,8 @@
+{
+  "name": "HealthVault NFC",
+  "short_name": "HealthVault",
+  "start_url": "/doctor.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0284c7"
+}

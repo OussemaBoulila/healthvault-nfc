@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HealthVault — Accueil &amp; Admission Rapide</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="toasts" aria-live="polite"></div>
+  <div class="container" style="max-width: 600px; margin-top: 40px;">
+    <div class="card" style="text-align: center; padding: 40px 20px;">
+      <h2>Borne d'Admission d'Urgence</h2>
+      <p class="muted" style="margin-top: 8px;">Admission en moins de 3 secondes sans saisie manuelle</p>
+
+      <div style="margin: 30px auto; width: 80px; height: 80px; border-radius: 50%; background: #e0f2fe; display: flex; align-items: center; justify-content: center;">
+        <span style="font-size: 2rem;" aria-hidden="true">💳</span>
+      </div>
+
+      <div style="text-align: left; margin-bottom: 16px;">
+        <label for="tokenInput">Jeton NFC (rempli automatiquement par le lecteur)</label>
+        <input type="text" id="tokenInput" value="token-demo-1234" autocomplete="off">
+      </div>
+
+      <div class="row">
+        <button id="btnFastTap" style="flex: 1; padding: 14px; font-size: 1.1rem;">Poser la Carte NFC</button>
+        <button id="btnWebNFC" class="btn-dark" style="padding: 14px;">Lecteur Web NFC</button>
+      </div>
+
+      <div id="intakeResult" style="display: none; margin-top: 24px; text-align: left; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 16px; border-radius: 8px;">
+        <h4 style="color: #065f46;" id="inTitle">Identité confirmée</h4>
+        <p style="margin-top: 4px;"><strong>Patient :</strong> <span id="inName"></span> (<span id="inAge"></span> ans, né en <span id="inYear"></span>)</p>
+        <p><strong>Groupe sanguin :</strong> <span id="inBlood"></span></p>
+        <p><strong>Contact d'urgence :</strong> <span id="inPhone"></span></p>
+
+        <div id="admitBlock" style="margin-top: 14px;">
+          <label for="boxSelect">Box de consultation</label>
+          <select id="boxSelect"></select>
+          <button id="btnAdmit" class="btn-success" style="width: 100%; margin-top: 12px; padding: 12px;">Admettre</button>
+        </div>
+
+        <p id="inQueue" style="display: none; margin-top: 8px;"></p>
+        <p id="inTime" style="font-size: 0.8rem; color: #047857; margin-top: 6px;"></p>
+      </div>
+    </div>
+    <p style="text-align:center;"><a href="index.html" class="muted" style="font-size:0.85rem;">← Accueil</a></p>
+  </div>
+
+  <script>
+    function toast(msg, type) {
+      const el = document.createElement('div');
+      el.className = 'toast ' + (type || '');
+      el.textContent = msg;
+      document.getElementById('toasts').appendChild(el);
+      setTimeout(() => el.remove(), 4000);
+    }
+
+    const $ = (id) => document.getElementById(id);
+
+    async function callIntake(payload) {
+      const res = await fetch('/api/intake_scan.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Erreur');
+      return data;
+    }
+
+    // Tap -> identity auto-populates (no PIN at reception, no medical history shown)
+    async function identify() {
+      const btn = $('btnFastTap');
+      btn.disabled = true;
+      try {
+        const data = await callIntake({ action: 'identify', nfc_token: $('tokenInput').value.trim() });
+        const p = data.patient;
+        // textContent only: never inject server data as HTML
+        $('inName').textContent = p.full_name_pseudonymized;
+        $('inAge').textContent = p.age;
+        $('inYear').textContent = p.birth_year;
+        $('inBlood').textContent = p.blood_group;
+        $('inPhone').textContent = p.emergency_contact || 'Non renseigné';
+        $('boxSelect').innerHTML = '';
+        data.boxes.forEach((b) => {
+          const o = document.createElement('option');
+          o.value = b; o.textContent = b;
+          if (b === 'Box 2') o.selected = true;
+          $('boxSelect').appendChild(o);
+        });
+        $('inTitle').textContent = 'Identité confirmée';
+        $('admitBlock').style.display = 'block';
+        $('inQueue').style.display = 'none';
+        $('inTime').textContent = '';
+        $('intakeResult').style.display = 'block';
+      } catch (e) {
+        $('intakeResult').style.display = 'none';
+        toast(e.message === 'Failed to fetch' ? 'Serveur injoignable.' : e.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // One tap: queue the patient
+    async function admit() {
+      const btn = $('btnAdmit');
+      btn.disabled = true;
+      try {
+        const data = await callIntake({ action: 'admit', nfc_token: $('tokenInput').value.trim(), box: $('boxSelect').value });
+        $('inTitle').textContent = 'Admission validée';
+        $('admitBlock').style.display = 'none';
+        $('inQueue').style.display = 'block';
+        $('inQueue').textContent = `Orientation : File d'attente ${data.box} — position ${data.queue_position}`;
+        $('inTime').textContent = 'Horodaté : ' + new Date(data.admitted_at).toLocaleTimeString('fr-FR') + ' | Dossier transmis au poste médecin.';
+      } catch (e) {
+        toast(e.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    $('btnFastTap').addEventListener('click', identify);
+    $('btnAdmit').addEventListener('click', admit);
+
+    // Web NFC reader: the tap fills the token and identifies the patient immediately
+    $('btnWebNFC').addEventListener('click', async () => {
+      if (!('NDEFReader' in window)) {
+        toast('Web NFC non supporté sur ce navigateur (Chrome Android requis).', 'error');
+        return;
+      }
+      try {
+        const ndef = new NDEFReader();
+        await ndef.scan();
+        toast('Lecteur prêt : posez la carte.');
+        ndef.onreading = (event) => {
+          const decoder = new TextDecoder();
+          for (const record of event.message.records) {
+            if (record.recordType === 'text') {
+              $('tokenInput').value = decoder.decode(record.data).trim();
+            } else if (record.recordType === 'url') {
+              const url = decoder.decode(record.data);
+              const params = new URLSearchParams(url.includes('?') ? url.split('?')[1] : '');
+              if (params.has('t')) $('tokenInput').value = params.get('t');
+            }
+          }
+          identify();
+        };
+      } catch (e) {
+        toast('Erreur Web NFC : ' + e.message, 'error');
+      }
+    });
+  </script>
+</body>
+</html>

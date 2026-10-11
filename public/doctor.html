@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0284c7">
+  <title>HealthVault Pro — Portail Praticien</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <div id="toasts" aria-live="polite"></div>
+  <div class="container">
+    <header>
+      <div>
+        <h2>Portail Praticien — Point de Soin</h2>
+        <p class="muted" style="font-size: 0.85rem;">Dr. Yassine Rached (CNOM: 14820) | Cabinet Cardiologie</p>
+      </div>
+      <div id="statusBadge" class="badge badge-verified">Système En Ligne</div>
+    </header>
+
+    <!-- Scan Gate -->
+    <div id="scanGate" class="card">
+      <h3>Lecture du Jeton NFC Patient</h3>
+      <p class="muted" style="margin-bottom: 12px;">Approchez la carte physique ou saisissez le token démo :</p>
+      <div class="grid-2">
+        <div>
+          <label for="tokenInput">Jeton Porteur (NFC Token)</label>
+          <input type="text" id="tokenInput" value="token-demo-1234" autocomplete="off">
+        </div>
+        <div>
+          <label for="pinInput">Code PIN Patient (Consentement 2FA)</label>
+          <input type="password" id="pinInput" value="1234" maxlength="4" inputmode="numeric" autocomplete="off">
+        </div>
+      </div>
+      <div class="row" style="margin-top: 16px;">
+        <button id="btnAuthScan">Déverrouiller le Dossier</button>
+        <button id="btnWebNFC" class="btn-dark">Activer Scan Web NFC</button>
+      </div>
+    </div>
+
+    <!-- Clinical Dashboard -->
+    <div id="patientDashboard" style="display: none;">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <div>
+            <h3 id="patientName"></h3>
+            <p class="muted" style="font-size: 0.85rem;" id="patientMeta"></p>
+          </div>
+          <div class="row" style="align-items: center;">
+            <span class="badge badge-verified">Consentement Actif (INPDP)</span>
+            <button id="btnFhir" class="btn-ghost">Export FHIR</button>
+            <button id="btnLogout" class="btn-ghost">Fermer le dossier</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h4>Pathologies Chroniques (ALD) &amp; Allergies</h4>
+          <div id="conditionsList" style="margin-top: 10px;"></div>
+          <div id="allergiesList" style="margin-top: 10px;"></div>
+        </div>
+
+        <div class="card">
+          <h4>Traitements Actifs en Cours</h4>
+          <div id="medicationsList" style="margin-top: 10px;"></div>
+        </div>
+      </div>
+
+      <!-- E-Prescriber & XAI Engine -->
+      <div class="card">
+        <h4>Prescripteur Sécurisé &amp; Détection des Collisions (Track 3)</h4>
+        <div class="grid-2" style="margin-top: 10px;">
+          <div>
+            <label for="moleculeSelect">Molécule candidate</label>
+            <input type="text" id="moleculeSelect" list="drugList" placeholder="Tapez pour rechercher (ex. Amox…)" autocomplete="off">
+            <datalist id="drugList"></datalist>
+          </div>
+          <div>
+            <label for="posologyInput">Posologie standard</label>
+            <input type="text" id="posologyInput" value="1 comprimé x 2 / jour pendant 6 jours" maxlength="50">
+          </div>
+        </div>
+
+        <div id="alertContainer" style="display: none;" aria-live="assertive"></div>
+
+        <div class="row" style="margin-top: 20px; justify-content: flex-end;">
+          <button id="btnSignPrescription" class="btn-success">Valider &amp; Synchroniser</button>
+        </div>
+        <div class="disclaimer">Système d'Aide à la Décision Médicale (SADM). Ne remplace pas la responsabilité du médecin.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Printable prescription (visible only when printing) -->
+  <div id="printArea"></div>
+
+  <script src="js/nfc.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
